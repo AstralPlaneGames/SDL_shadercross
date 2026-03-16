@@ -671,7 +671,9 @@ SDL_ELF_NOTE_DLOPEN(
 #if defined(__x86_64__) || defined(__arm64__)
 #define __stdcall __attribute__((ms_abi))
 #else
-#if (__GNUC__ > 4) || ((__GNUC__ == 4) && (__GNUC_MINOR__ >= 2)) || defined(__APPLE__)
+#if defined(__ANDROID__)
+#define __stdcall
+#elif (__GNUC__ > 4) || ((__GNUC__ == 4) && (__GNUC_MINOR__ >= 2)) || defined(__APPLE__)
 #define __stdcall __attribute__((__stdcall__)) __attribute__((__force_align_arg_pointer__))
 #else
 #define __stdcall __attribute__((__stdcall__))

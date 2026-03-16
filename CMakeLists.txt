@@ -112,6 +112,11 @@ if(SDLSHADERCROSS_VENDORED)
 
 	sdl_check_project_in_subfolder(external/SPIRV-Headers SPIRV-Headers SDLSHADERCROSS_VENDORED)
 	add_subdirectory(external/SPIRV-Headers EXCLUDE_FROM_ALL)
+	if(IOS OR TVOS OR ANDROID)
+		# SPIRV-Tools CLI binaries are host tools and should not be installed for mobile target builds.
+		set(SPIRV_SKIP_EXECUTABLES ON CACHE BOOL "" FORCE)
+		set(SPIRV_SKIP_INSTALL ON CACHE BOOL "" FORCE)
+	endif()
 	sdl_check_project_in_subfolder(external/SPIRV-Tools SPIRV-Tools SDLSHADERCROSS_VENDORED)
 	add_subdirectory(external/SPIRV-Tools EXCLUDE_FROM_ALL)
 

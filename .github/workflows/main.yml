@@ -19,8 +19,11 @@ jobs:
           - { name: Windows (MSVC),                os: windows-latest, build-spirv-cross: true,  vendored: false, shell: sh, msvc: true, artifact: 'SDL3_shadercross-VC-x64' }
           - { name: Windows (mingw64),             os: windows-latest, build-spirv-cross: false, vendored: false, shell: 'msys2 {0}', msystem: mingw64, msys-env: mingw-w64-x86_64, artifact: 'SDL3_shadercross-mingw64' }
           - { name: Ubuntu 24.04,                  os: ubuntu-24.04,   build-spirv-cross: true,  vendored: false, shell: sh, artifact: 'SDL3_shadercross-linux-x64' }
+          - { name: Android (arm64-v8a),           os: ubuntu-latest,  build-spirv-cross: true,  vendored: true,  shell: sh, artifact: 'SDL3_shadercross-android-arm64-v8a', sdl-test: 'OFF', run-tests: 'OFF', run-cpack: 'OFF', install-cpack: 'OFF', install-man: 'OFF', verify-cmake: 'OFF', install-runtime: 'OFF', cli: 'OFF', cmake-arguments: '-DCMAKE_SYSTEM_NAME=Android -DCMAKE_SYSTEM_VERSION=24 -DCMAKE_ANDROID_ARCH_ABI=arm64-v8a -DSDLSHADERCROSS_DXC=OFF' }
           - { name: Steam Linux Runtime (Sniper),  os: ubuntu-latest,  build-spirv-cross: false,  vendored: true, shell: sh, artifact: 'SDL3_shadercross-slrsniper', container: 'registry.gitlab.steamos.cloud/steamrt/sniper/sdk:latest' }
           - { name: macOS,                         os: macos-latest,   build-spirv-cross: true,  vendored: true,  shell: sh, artifact: 'SDL3_shadercross-macos-arm64', cmake-arguments: '-DCMAKE_OSX_ARCHITECTURES="x86_64;arm64" -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0 -DCMAKE_C_FLAGS="-mmacosx-version-min=11.0" -DCMAKE_CXX_FLAGS="-mmacosx-version-min=11.0"' }
+          - { name: iOS (arm64),                   os: macos-latest,   build-spirv-cross: true,  vendored: true,  shell: sh, artifact: 'SDL3_shadercross-ios-arm64', sdl-test: 'OFF', run-tests: 'OFF', run-cpack: 'OFF', install-cpack: 'OFF', install-man: 'OFF', verify-cmake: 'OFF', install-runtime: 'OFF', cli: 'OFF', cmake-arguments: '-DCMAKE_SYSTEM_NAME=iOS -DCMAKE_OSX_ARCHITECTURES=arm64 -DCMAKE_OSX_DEPLOYMENT_TARGET=13.0 -DSDLSHADERCROSS_DXC=OFF -DSDLSHADERCROSS_SPIRVCROSS_SHARED=OFF' }
+          - { name: tvOS (arm64),                  os: macos-latest,   build-spirv-cross: true,  vendored: true,  shell: sh, artifact: 'SDL3_shadercross-tvos-arm64', sdl-test: 'OFF', run-tests: 'OFF', run-cpack: 'OFF', install-cpack: 'OFF', install-man: 'OFF', verify-cmake: 'OFF', install-runtime: 'OFF', cli: 'OFF', cmake-arguments: '-DCMAKE_SYSTEM_NAME=tvOS -DCMAKE_OSX_ARCHITECTURES=arm64 -DCMAKE_OSX_DEPLOYMENT_TARGET=13.0 -DSDLSHADERCROSS_DXC=OFF -DSDLSHADERCROSS_SPIRVCROSS_SHARED=OFF' }
 
     steps:
       - uses: actions/checkout@v4
@@ -50,7 +53,7 @@ jobs:
           cmake-arguments: ${{ matrix.platform.cmake-arguments }}
           cmake-generator: Ninja
           version: 3-head
-          sdl-test: true
+          sdl-test: ${{ matrix.platform.sdl-test != 'OFF' }}
           shell: ${{ matrix.platform.shell }}
           install-linux-dependencies: true
           discriminator: ${{ matrix.platform.artifact }}
@@ -100,18 +103,20 @@ jobs:
       - name: Configure (CMake)
         run: |
           cmake -S . -B build -GNinja \
-            -DSDLSHADERCROSS_TESTS=ON \
-            -DSDLSHADERCROSS_TESTS_TRACKMEM=ON \
+            -DCMAKE_PREFIX_PATH="${{ steps.sdl.outputs.prefix }}" \
+            -DSDL3_DIR="${{ steps.sdl.outputs.prefix }}/lib/cmake/SDL3" \
+            -DSDLSHADERCROSS_TESTS=${{ matrix.platform.run-tests != 'OFF' }} \
+            -DSDLSHADERCROSS_TESTS_TRACKMEM=${{ matrix.platform.run-tests != 'OFF' }} \
             -DCMAKE_BUILD_TYPE=Release \
             -DSDLSHADERCROSS_SHARED=ON \
             -DSDLSHADERCROSS_STATIC=ON \
             -DSDLSHADERCROSS_VENDORED=${{ matrix.platform.vendored }} \
-            -DSDLSHADERCROSS_CLI=ON \
+            -DSDLSHADERCROSS_CLI=${{ matrix.platform.cli != 'OFF' }} \
             -DSDLSHADERCROSS_WERROR=ON \
             -DSDLSHADERCROSS_INSTALL=ON \
-            -DSDLSHADERCROSS_INSTALL_RUNTIME=ON \
-            -DSDLSHADERCROSS_INSTALL_CPACK=ON \
-            -DSDLSHADERCROSS_INSTALL_MAN=ON \
+            -DSDLSHADERCROSS_INSTALL_RUNTIME=${{ matrix.platform.install-runtime != 'OFF' }} \
+            -DSDLSHADERCROSS_INSTALL_CPACK=${{ matrix.platform.install-cpack != 'OFF' }} \
+            -DSDLSHADERCROSS_INSTALL_MAN=${{ matrix.platform.install-man != 'OFF' }} \
             -DCMAKE_INSTALL_PREFIX="${PWD}/prefix" \
             ${{ matrix.platform.cmake-arguments }}
 
@@ -127,18 +132,18 @@ jobs:
           echo "SDL3_shadercross_ROOT=${PWD}/prefix" >>${GITHUB_ENV}
       - name: Package (CPack)
         id: package
-        if: ${{ always() && steps.build.outcome == 'success' }}
+        if: ${{ always() && steps.build.outcome == 'success' && matrix.platform.run-cpack != 'OFF' }}
         run: |
           cmake --build build/ --target package
       - name: Tests (CTest)
         id: test
-        if: ${{ always() && steps.build.outcome == 'success' }}
+        if: ${{ always() && steps.build.outcome == 'success' && matrix.platform.run-tests != 'OFF' }}
         run: |
           cd build/test
           ctest . -V -C Release
 
       - name: Verify CMake configuration files
-        if: ${{ always() && steps.install.outcome == 'success' }}
+        if: ${{ always() && steps.install.outcome == 'success' && matrix.platform.verify-cmake != 'OFF' }}
         run: |
           cmake -S cmake/test -B cmake_config_build -GNinja \
             -DCMAKE_BUILD_TYPE=Release \
@@ -151,3 +156,10 @@ jobs:
           if-no-files-found: error
           name: ${{ matrix.platform.artifact }}
           path: build/dist/SDL*
+
+      - uses: actions/upload-artifact@v4
+        if: ${{ always() && steps.install.outcome == 'success' && matrix.platform.run-cpack == 'OFF' }}
+        with:
+          if-no-files-found: error
+          name: ${{ matrix.platform.artifact }}
+          path: prefix
