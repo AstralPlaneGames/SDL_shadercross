@@ -1,0 +1,18 @@
+Building SDL3_shadercross for UWP (WinRT)
+-----------------------------------------
+SDL3_shadercross uses Visual Studio 2022 to build for UWP.
+
+Dependencies
+------------
+Before building, download SDL3's UWP source code:
+
+https://github.com/FNA-NET/SDL3-uwp
+
+Place it as a sibling folder to SDL_shadercross:
+  ../SDL3-uwp/
+
+Compiling
+---------
+1. Build SDL3-uwp/VisualC-WinRT/SDL-UWP.sln
+2. Build SDL_shadercross.sln
+3. Grab SDL3_shadercross.dll and SDL3.dll, ship it!
